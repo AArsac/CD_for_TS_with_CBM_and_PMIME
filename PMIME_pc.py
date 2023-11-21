@@ -3,9 +3,7 @@
 Created on Tue Jul 19 10:27:55 2022
 author : Antonin Arsac
 
-This file is the for the measure of PMIME in the special PC case. 
-MIME --> bivariate case
-PMIME --> when a conditioning set is involved
+
 """
 
 
