@@ -1,0 +1,2 @@
+code for FCI function adapted to use with PMIME measure.
+The FCI code is from https://github.com/ckassaad/PCGCE and is adapted to deal with time series data.
