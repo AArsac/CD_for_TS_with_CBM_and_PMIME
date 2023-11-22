@@ -5,6 +5,8 @@ The recent code is in the folder in the folder constraint_based_CB_PMIME, and a 
 
 The old_code folder contains is version 1, that still needs to get improved: In this code, orientation of edges is done only with asymetry, not with the PC rules. That can lead to spurious causality.
 
+Link to the preprint: https://arxiv.org/abs/2305.19695
+
 You may require the Tigramite package to run the test file, check : https://github.com/jakobrunge/tigramite
 
 Additionally, to run the DYNOTEARS algorithm, i recommend you to upload the causalnex file : https://github.com/quantumblacklabs/causalnex/tree/develop/causalnex
