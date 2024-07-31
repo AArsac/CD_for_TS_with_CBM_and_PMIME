@@ -228,308 +228,9 @@ class RankingList:
         self.elem_r = sorted_elem_r
 
 
-# def pmime(x , y , y_past , z=None, nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
-#     '''
-#     function that adapts PMIME measure to the FCIGCE use
-#     basic functions are imported form the PMIME_last file
-    
-#     inputs :
-#         - x = vector or matrix of the interest variables to be tested 
-#         - y = vector of the target variable
-#         - y_past = past of the target
-#         - z = conditioning set
-#         - k = number of nearest neighbors for estimation of CMI
-        
-#     outputs :
-#         - value returned by R = I(Y, w^x|w^y,w^z)/I(Y;w) = pval = val
-#     '''
-    
-    
-       
-#     # Lmax = kwargs.get('Lmax', 5)
-#     '''     ### Preprocessing ###   '''
-#     stopping_threshold = kwargs.get('sig_pmime', 0.05)
-#     sig_CMI = kwargs.get('sig_CMI', 0.05)
-#     nb_bs = kwargs.get('nb_bs', 100)
-#     # nnei = kwargs.get('nnei', 5)
-    
-#     dim_x = x.shape[1]
-#     dim_y = y.shape[1] 
-#     dim_y_past = y_past.shape[1]
-#     '''create lagged component of y'''
-#     if z is not None:
-#         z_df = pd.DataFrame()
-#         for k in z.keys():
-#             if isinstance(z[k], pd.Series):
-#                 z[k] = z[k].to_frame()
-#             z_df[z[k].columns] = z[k].reset_index(drop=True)
-
-#         dim_z = z_df.shape[1]
-#         X = np.concatenate((x.values, y_past.values, z_df.values), axis=1)
-#         xyz = np.array([0] * dim_x + [1] * dim_y_past + [2] * dim_z)
-#         all_lags = dim_x+dim_y_past+dim_z
-#         # print('matrix X:\n',X[0,:])
-#     else:
-#         X = np.concatenate((x.values, y_past.values), axis=1)  ## X contains [ lagged variables of interest, target var, conditioning set ]
-#         xyz = np.array([0] * dim_x + [1] * dim_y_past)   ## index of each variable in X
-#         all_lags = dim_x+dim_y_past
-#     X = pm.normalize(X)
-    
-#     '''
-#     ### building the embedding vector   ###
-#     '''
-#     embedding_vector_indices = []
-#     embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
-    
-#     embedding_matrix = X[:,embedding_vector_indices]
-#     SC_l = []
-
-#     termination = 0
-#     # while termination == 0:
-#     #     ## list of potential causes
-#     #     candidate_list = [i for i in range(all_lags) if i not in embedding_vector_indices]
-        
-#     #     ## compute MI and CMI for each candidate
-#     #     cmi_values = Parallel(n_jobs=-1)(
-#     #         delayed(pm.compute_cmi_parallel)(
-#     #             var, y, X, embedding_matrix, nb_neighbors
-#     #         ) for var in candidate_list
-#     #     )
-#     #     ## select the one that maximises the CMI
-#     #     embedding_temp = candidate_list[np.argmax(cmi_values)]
-    
-#     #     temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
-#     #     ## Check if the selected vector is significative or not. If it is, keep it as a cause
-#     #     ## If it is not, stop the search and compute the measure
-#     #     if bootstrap:
-#     #         p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, np.max(cmi_values), nb_neighbors)
-#     #         if p_value < sig_CMI:
-#     #             embedding_vector_indices += [embedding_temp]
-#     #             embedding_matrix = temp_embedding_matrix
-#     #         else:
-#     #             termination = 1
-#     #     else:
-#     #         SC = np.max(cmi_values) / pm.ksg_mi(y, temp_embedding_matrix, nb_neighbors)
-#     #         SC_l += [SC]
-    
-#     #         if len(embedding_vector_indices) <= 2:
-#     #             if SC > stopping_threshold:
-#     #                 embedding_vector_indices += [embedding_temp]
-#     #                 embedding_matrix = temp_embedding_matrix
-#     #             else:
-#     #                 termination = 1
-#     #         else:
-#     #             if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
-#     #                 embedding_vector_indices += [embedding_temp]
-#     #                 embedding_matrix = temp_embedding_matrix
-#     #             else:
-#     #                 termination = 1
-#     while termination == 0:
-#         candidate_list = [i for i in ([j for j in range(all_lags)] + embedding_vector_indices) if i not in embedding_vector_indices]  # indices of candidates
-        
-#         cmi_values = -999 * np.ones((all_lags,))
-        
-#         for var in candidate_list:
-#             ## we compute CMI and MI for each candidate
-#             cmi_values[var] = pm.ksg_cmi(y, X[:, var], embedding_matrix, k= nb_neighbors)
-
-#             if cmi_values[var] == np.max(cmi_values):
-#                 embedding_temp = var
-
-#         temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
-#         ## Check if the selected vector is significative or not. If it is, keep it as a cause
-#         ## If it is not, stop the search and compute the measure
-#         if bootstrap:
-#             p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, cmi_values[embedding_temp],nb_neighbors)
-
-#             if p_value < sig_CMI:
-#                 embedding_vector_indices += [embedding_temp]
-#                 embedding_matrix = temp_embedding_matrix
-#             else:
-#                 termination = 1
-        
-#         else:
-#             SC = cmi_values[embedding_temp] / pm.ksg_mi(y, temp_embedding_matrix, nb_neighbors)
-
-#             SC_l += [SC]
-            
-#             ## Compare the ratio with the threshold
-#             if len(embedding_vector_indices) <= 2:
-#                 # 2nd and 3rd embedding cycle to be tested
-#                 if SC > stopping_threshold:
-#                     embedding_vector_indices += [embedding_temp]
-#                     embedding_matrix = temp_embedding_matrix
-#                 else:
-#                     termination = 1
-#             else:
-#                 # 4th embedding cycle to be tested --> additional condition to avoid 
-#                 # false acceptance, if the ratio keeps increasing
-#                 if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
-#                     embedding_vector_indices += [embedding_temp]
-#                     embedding_matrix = temp_embedding_matrix
-#                 else:
-#                     termination = 1
-    
-#     # idxM: matrix of the true variable index in X + lag of each var
-#     #       implicated in the embedding vector
-#     idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
-#     for j in range(len(embedding_vector_indices)):
-#         idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
-#         idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
-    
-    
-#     ''' COMPUTE THE R MEASURE '''
-#     R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
-#     pval = R
-#     if verbose :
-#         if z !=None and z != {} :
-#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
-#         else :
-#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
-#     return pval, R
-
-
-# def pmime(x , y , y_past , z=None, nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
-#     '''
-#     function that adapts PMIME measure to the FCIGCE use
-#     basic functions are imported form the PMIME_last file
-    
-#     inputs :
-#         - x = vector or matrix of the interest variables to be tested 
-#         - y = vector of the target variable
-#         - y_past = past of the target
-#         - z = conditioning set
-#         - k = number of nearest neighbors for estimation of CMI
-        
-#     outputs :
-#         - value returned by R = I(Y, w^x|w^y,w^z)/I(Y;w) = pval = val
-#     '''
-    
-    
-       
-#     # Lmax = kwargs.get('Lmax', 5)
-    
-    
-
-    
-#     '''     ### Preprocessing ###   '''
-#     stopping_threshold = kwargs.get('threshold', 0.05)
-#     sig_CMI = kwargs.get('sig_CMI', 0.05)
-#     nb_bs = kwargs.get('nb_bs', 100)
-#     method = kwargs.get('methode', 'light')
-#     # nnei = kwargs.get('nnei', 5)
-    
-#     dim_x = x.shape[1]
-#     dim_y = y.shape[1] 
-#     dim_y_past = y_past.shape[1]
-#     if method == 'heavy':
-#         cd = CMIknn(mask_type=None, significance='shuffle_test', fixed_thres=None, sig_samples=10000,
-#                     sig_blocklength=3, knn=nb_neighbors, shuffle_neighbors=5, confidence='bootstrap', conf_lev=0.9, conf_samples=10000,
-#                     conf_blocklength=1, verbosity=0) 
-#     if method == 'light':
-#         cd = CMIknn(mask_type=None, significance='fixed_thres', fixed_thres=None) 
-
-#     '''create lagged component of X and Y'''
-#     Xp = np.concatenate((x.values, y_past.values), axis=1)  
-#     Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
-#     if z is not None:
-#         z_df = pd.DataFrame()
-#         for k in z.keys():
-#             if isinstance(z[k], pd.Series):
-#                 z[k] = z[k].to_frame()
-#             z_df[z[k].columns] = z[k].reset_index(drop=True)
-
-#         dim_z = z_df.shape[1]
-#         Xp = np.concatenate((Xp, z_df.values[Lmax:]), axis=1)
-#         # xyz = np.array([0] * dim_x + [1] * dim_y_past + [2] * dim_z)
-#         all_lags = Xp.shape[1]
-#         # print('matrix X:\n',X[0,:])
-#     else:
-#         ## X = [ lagged variables of X, laggend variables of Y ]
-#                 ## index of each variable in X
-#         all_lags = Xp.shape[1]
-#     y = y[Lmax:]    ## reshape y to match X
-#     X = pm.normalize(Xp)
-    
-
-#     '''
-#     ### building the embedding vector   ###
-#     '''
-#     embedding_vector_indices = []
-#     embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
-    
-#     embedding_matrix = X[:,embedding_vector_indices]
-#     SC_l = []
-
-#     termination = 0
-
-#     while termination == 0:
-#         candidate_list = [i for i in ([j for j in range(all_lags)] + embedding_vector_indices) if i not in embedding_vector_indices]  # indices of candidates
-        
-#         cmi_values = -999 * np.ones((all_lags,))
-        
-#         for var in candidate_list:
-#             ## we compute CMI and MI for each candidate
-#             cmi_values[var] = pm.ksg_cmi(X[:, var],y, embedding_matrix, k= nb_neighbors)
-
-#             if cmi_values[var] == np.max(cmi_values):
-#                 embedding_temp = var
-
-#         temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
-
-#         if bootstrap:
-#             p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, cmi_values[embedding_temp],nb_neighbors)
-
-#             if p_value < sig_CMI:
-#                 embedding_vector_indices += [embedding_temp]
-#                 embedding_matrix = temp_embedding_matrix
-#             else:
-#                 termination = 1
-        
-#         else:
-#             SC = cmi_values[embedding_temp] / pm.ksg_mi(temp_embedding_matrix,y, nb_neighbors)
-
-#             SC_l += [SC]
-            
-#             ## Compare the ratio with the threshold
-#             if len(embedding_vector_indices) <= 2:
-#                 # 2nd and 3rd embedding cycle to be tested
-#                 if SC > stopping_threshold:
-#                     embedding_vector_indices += [embedding_temp]
-#                     embedding_matrix = temp_embedding_matrix
-#                 else:
-#                     termination = 1
-#             else:
-#                 # 4th embedding cycle to be tested --> additional condition to avoid 
-#                 # false acceptance, if the ratio keeps increasing
-#                 if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
-#                     embedding_vector_indices += [embedding_temp]
-#                     embedding_matrix = temp_embedding_matrix
-#                 else:
-#                     termination = 1
-
-#     # idxM: matrix of the true variable index in X + lag of each var
-#     #       implicated in the embedding vector
-#     idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
-#     for j in range(len(embedding_vector_indices)):
-#         idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
-#         idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
-    
-    
-#     ''' COMPUTE THE R MEASURE '''
-
-#     R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
-#     pval = R
-#     if verbose :
-#         if z !=None and z != {} :
-#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
-#         else :
-#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
-#     return pval, R
-
-def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
+def pmime(x , y , y_past , z=None, nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
     '''
-    function that adapts PMIME measure to the FCI algorithm
+    function that adapts PMIME measure to the FCIGCE use
     basic functions are imported form the PMIME_last file
     
     inputs :
@@ -541,82 +242,88 @@ def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, L
         
     outputs :
         - value returned by R = I(Y, w^x|w^y,w^z)/I(Y;w) = pval = val
-    '''     
+    '''
+    
+    
+       
     # Lmax = kwargs.get('Lmax', 5)
-    
-    
     '''     ### Preprocessing ###   '''
-    # method = kwargs.get('method', "fixed")
-    stopping_threshold = kwargs.get('threshold', 0.03)
+    stopping_threshold = kwargs.get('sig_pmime', 0.05)
     sig_CMI = kwargs.get('sig_CMI', 0.05)
     nb_bs = kwargs.get('nb_bs', 100)
     # nnei = kwargs.get('nnei', 5)
-
-    if method == 'shuffle':
-        cd = CMIknn(mask_type=None, significance='shuffle_test', fixed_thres=None, sig_samples=10000,
-                    sig_blocklength=3, knn=nb_neighbors, shuffle_neighbors=5, confidence='bootstrap', conf_lev=0.9, conf_samples=10000,
-                    conf_blocklength=1, verbosity=0) 
-    elif method == 'fixed':
-        cd = CMIknn(mask_type=None, significance='fixed_thres', fixed_thres=None) 
-    else:
-        cd = 'ksg'
     
     dim_x = x.shape[1]
     dim_y = y.shape[1] 
     dim_y_past = y_past.shape[1]
-
-    '''create lagged component of X and Y'''
-    Xp = np.concatenate((x.values, y_past.values), axis=1)  
-    # Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
+    '''create lagged component of y'''
     if z is not None:
         z_df = pd.DataFrame()
         for k in z.keys():
             if isinstance(z[k], pd.Series):
                 z[k] = z[k].to_frame()
             z_df[z[k].columns] = z[k].reset_index(drop=True)
-    
-        dim_z = z_df.shape[1]
-        Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
-        Xp = np.concatenate((Xp, z_df.values[Lmax:,:]), axis=1)
-        
 
-        all_lags = Xp.shape[1]
+        dim_z = z_df.shape[1]
+        X = np.concatenate((x.values, y_past.values, z_df.values), axis=1)
+        xyz = np.array([0] * dim_x + [1] * dim_y_past + [2] * dim_z)
+        all_lags = dim_x+dim_y_past+dim_z
         # print('matrix X:\n',X[0,:])
-        
     else:
-        ## X = [ lagged variables of X, laggend variables of Y ]
-                ## index of each variable in X
-        ## for instantaneous direct relationships, calculate MI
-        # if len(x.columns[0]) == len(y.columns[0]): 
-        #     Xnorm = pm.normalize(x.values)
-        #     Ynorm = pm.normalize(y.values)
-        #     R = pm.compute_MI(Xnorm, Ynorm, cd=cd, nnei = nb_neighbors)
-        #     pval = R
-        #     if verbose :
-        #         if z !=None and z != {} :
-        #             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
-        #         else :
-        #             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
-        #     return R, pval
-        Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
-        all_lags = Xp.shape[1]
-    y = y[Lmax:]    ## reshape y to match X
+        X = np.concatenate((x.values, y_past.values), axis=1)  ## X contains [ lagged variables of interest, target var, conditioning set ]
+        xyz = np.array([0] * dim_x + [1] * dim_y_past)   ## index of each variable in X
+        all_lags = dim_x+dim_y_past
+    X = pm.normalize(X)
     
-    X = pm.normalize(Xp) ## normalize data matrix
-    
-    # print('shape X', X.shape)
     '''
     ### building the embedding vector   ###
     '''
     embedding_vector_indices = []
-    # embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
-    embedding_vector_indices.append( pm.first_cycle(X, y,cd = cd, nnei = nb_neighbors))
+    embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
     
     embedding_matrix = X[:,embedding_vector_indices]
     SC_l = []
-    
+
     termination = 0
+    # while termination == 0:
+    #     ## list of potential causes
+    #     candidate_list = [i for i in range(all_lags) if i not in embedding_vector_indices]
+        
+    #     ## compute MI and CMI for each candidate
+    #     cmi_values = Parallel(n_jobs=-1)(
+    #         delayed(pm.compute_cmi_parallel)(
+    #             var, y, X, embedding_matrix, nb_neighbors
+    #         ) for var in candidate_list
+    #     )
+    #     ## select the one that maximises the CMI
+    #     embedding_temp = candidate_list[np.argmax(cmi_values)]
     
+    #     temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
+    #     ## Check if the selected vector is significative or not. If it is, keep it as a cause
+    #     ## If it is not, stop the search and compute the measure
+    #     if bootstrap:
+    #         p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, np.max(cmi_values), nb_neighbors)
+    #         if p_value < sig_CMI:
+    #             embedding_vector_indices += [embedding_temp]
+    #             embedding_matrix = temp_embedding_matrix
+    #         else:
+    #             termination = 1
+    #     else:
+    #         SC = np.max(cmi_values) / pm.ksg_mi(y, temp_embedding_matrix, nb_neighbors)
+    #         SC_l += [SC]
+    
+    #         if len(embedding_vector_indices) <= 2:
+    #             if SC > stopping_threshold:
+    #                 embedding_vector_indices += [embedding_temp]
+    #                 embedding_matrix = temp_embedding_matrix
+    #             else:
+    #                 termination = 1
+    #         else:
+    #             if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
+    #                 embedding_vector_indices += [embedding_temp]
+    #                 embedding_matrix = temp_embedding_matrix
+    #             else:
+    #                 termination = 1
     while termination == 0:
         candidate_list = [i for i in ([j for j in range(all_lags)] + embedding_vector_indices) if i not in embedding_vector_indices]  # indices of candidates
         
@@ -624,17 +331,17 @@ def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, L
         
         for var in candidate_list:
             ## we compute CMI and MI for each candidate
-            # cmi_values[var] = pm.ksg_cmi(X[:, var],y, embedding_matrix, k= nb_neighbors)
-            cmi_values[var] = pm.compute_CMI(X[:, var],y, embedding_matrix, cd = cd, nnei = nb_neighbors)
-    
+            cmi_values[var] = pm.ksg_cmi(y, X[:, var], embedding_matrix, k= nb_neighbors)
+
             if cmi_values[var] == np.max(cmi_values):
                 embedding_temp = var
-    
+
         temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
-        # print('valeurs cmi boucle :', cmi_values)
+        ## Check if the selected vector is significative or not. If it is, keep it as a cause
+        ## If it is not, stop the search and compute the measure
         if bootstrap:
             p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, cmi_values[embedding_temp],nb_neighbors)
-    
+
             if p_value < sig_CMI:
                 embedding_vector_indices += [embedding_temp]
                 embedding_matrix = temp_embedding_matrix
@@ -642,16 +349,14 @@ def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, L
                 termination = 1
         
         else:
-            # SC = cmi_values[embedding_temp] / pm.compute_MI(temp_embedding_matrix,y, cd=cd, nnei = nb_neighbors)
-            # SC = pm.compute_MI(embedding_matrix, y, cd = cd) / pm.compute_MI(temp_embedding_matrix,y, cd=cd)
-            SC =  pm.compute_MI(temp_embedding_matrix,y, cd=cd, nnei = nb_neighbors) / pm.compute_MI(embedding_matrix, y, cd = cd, nnei = nb_neighbors) 
-            
+            SC = cmi_values[embedding_temp] / pm.ksg_mi(y, temp_embedding_matrix, nb_neighbors)
+
             SC_l += [SC]
-            # print('SC :', SC)
+            
             ## Compare the ratio with the threshold
             if len(embedding_vector_indices) <= 2:
                 # 2nd and 3rd embedding cycle to be tested
-                if SC < 1 - stopping_threshold:
+                if SC > stopping_threshold:
                     embedding_vector_indices += [embedding_temp]
                     embedding_matrix = temp_embedding_matrix
                 else:
@@ -659,25 +364,22 @@ def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, L
             else:
                 # 4th embedding cycle to be tested --> additional condition to avoid 
                 # false acceptance, if the ratio keeps increasing
-                if SC < 1 - stopping_threshold and (SC > SC_l[-2]) and (SC > SC_l[-3]):
+                if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
                     embedding_vector_indices += [embedding_temp]
                     embedding_matrix = temp_embedding_matrix
                 else:
                     termination = 1
-            
-        # idxM: matrix of the true variable index in the entry dataset + lag of each var
-        #       implicated in the embedding vector [[var1,lag],[var2,lag]...]
-        # print('indices w', embedding_vector_indices)
-        idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
-        for j in range(len(embedding_vector_indices)):
-            idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
-            idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
-        
-        
-    ''' COMPUTE THE R MEASURE '''
     
-    # R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
-    R = pm.compute_R(idxM, embedding_matrix, y, cd= cd, nnei = nb_neighbors)
+    # idxM: matrix of the true variable index in X + lag of each var
+    #       implicated in the embedding vector
+    idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
+    for j in range(len(embedding_vector_indices)):
+        idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
+        idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
+    
+    
+    ''' COMPUTE THE R MEASURE '''
+    R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
     pval = R
     if verbose :
         if z !=None and z != {} :
@@ -685,6 +387,304 @@ def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, L
         else :
             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
     return pval, R
+
+
+def pmime(x , y , y_past , z=None, nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
+    '''
+    function that adapts PMIME measure to the FCIGCE use
+    basic functions are imported form the PMIME_last file
+    
+    inputs :
+        - x = vector or matrix of the interest variables to be tested 
+        - y = vector of the target variable
+        - y_past = past of the target
+        - z = conditioning set
+        - k = number of nearest neighbors for estimation of CMI
+        
+    outputs :
+        - value returned by R = I(Y, w^x|w^y,w^z)/I(Y;w) = pval = val
+    '''
+    
+    
+       
+    # Lmax = kwargs.get('Lmax', 5)
+    
+    
+
+    
+    '''     ### Preprocessing ###   '''
+    stopping_threshold = kwargs.get('threshold', 0.05)
+    sig_CMI = kwargs.get('sig_CMI', 0.05)
+    nb_bs = kwargs.get('nb_bs', 100)
+    method = kwargs.get('methode', 'light')
+    # nnei = kwargs.get('nnei', 5)
+    
+    dim_x = x.shape[1]
+    dim_y = y.shape[1] 
+    dim_y_past = y_past.shape[1]
+    if method == 'heavy':
+        cd = CMIknn(mask_type=None, significance='shuffle_test', fixed_thres=None, sig_samples=10000,
+                    sig_blocklength=3, knn=nb_neighbors, shuffle_neighbors=5, confidence='bootstrap', conf_lev=0.9, conf_samples=10000,
+                    conf_blocklength=1, verbosity=0) 
+    if method == 'light':
+        cd = CMIknn(mask_type=None, significance='fixed_thres', fixed_thres=None) 
+
+    '''create lagged component of X and Y'''
+    Xp = np.concatenate((x.values, y_past.values), axis=1)  
+    Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
+    if z is not None:
+        z_df = pd.DataFrame()
+        for k in z.keys():
+            if isinstance(z[k], pd.Series):
+                z[k] = z[k].to_frame()
+            z_df[z[k].columns] = z[k].reset_index(drop=True)
+
+        dim_z = z_df.shape[1]
+        Xp = np.concatenate((Xp, z_df.values[Lmax:]), axis=1)
+        # xyz = np.array([0] * dim_x + [1] * dim_y_past + [2] * dim_z)
+        all_lags = Xp.shape[1]
+        # print('matrix X:\n',X[0,:])
+    else:
+        ## X = [ lagged variables of X, laggend variables of Y ]
+                ## index of each variable in X
+        all_lags = Xp.shape[1]
+    y = y[Lmax:]    ## reshape y to match X
+    X = pm.normalize(Xp)
+    
+
+    '''
+    ### building the embedding vector   ###
+    '''
+    embedding_vector_indices = []
+    embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
+    
+    embedding_matrix = X[:,embedding_vector_indices]
+    SC_l = []
+
+    termination = 0
+
+    while termination == 0:
+        candidate_list = [i for i in ([j for j in range(all_lags)] + embedding_vector_indices) if i not in embedding_vector_indices]  # indices of candidates
+        
+        cmi_values = -999 * np.ones((all_lags,))
+        
+        for var in candidate_list:
+            ## we compute CMI and MI for each candidate
+            cmi_values[var] = pm.ksg_cmi(X[:, var],y, embedding_matrix, k= nb_neighbors)
+
+            if cmi_values[var] == np.max(cmi_values):
+                embedding_temp = var
+
+        temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
+
+        if bootstrap:
+            p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, cmi_values[embedding_temp],nb_neighbors)
+
+            if p_value < sig_CMI:
+                embedding_vector_indices += [embedding_temp]
+                embedding_matrix = temp_embedding_matrix
+            else:
+                termination = 1
+        
+        else:
+            SC = cmi_values[embedding_temp] / pm.ksg_mi(temp_embedding_matrix,y, nb_neighbors)
+
+            SC_l += [SC]
+            
+            ## Compare the ratio with the threshold
+            if len(embedding_vector_indices) <= 2:
+                # 2nd and 3rd embedding cycle to be tested
+                if SC > stopping_threshold:
+                    embedding_vector_indices += [embedding_temp]
+                    embedding_matrix = temp_embedding_matrix
+                else:
+                    termination = 1
+            else:
+                # 4th embedding cycle to be tested --> additional condition to avoid 
+                # false acceptance, if the ratio keeps increasing
+                if SC > stopping_threshold and (SC < SC_l[-2]) and (SC < SC_l[-3]):
+                    embedding_vector_indices += [embedding_temp]
+                    embedding_matrix = temp_embedding_matrix
+                else:
+                    termination = 1
+
+    # idxM: matrix of the true variable index in X + lag of each var
+    #       implicated in the embedding vector
+    idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
+    for j in range(len(embedding_vector_indices)):
+        idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
+        idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
+    
+    
+    ''' COMPUTE THE R MEASURE '''
+
+    R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
+    pval = R
+    if verbose :
+        if z !=None and z != {} :
+            print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
+        else :
+            print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
+    return pval, R
+
+# def pmime_measure(x , y , y_past , z=None, method = 'fixed',nb_neighbors = 10, Lmax = 5, bootstrap = False,verbose = 1,**kwargs):
+#     '''
+#     function that adapts PMIME measure to the FCI algorithm
+#     basic functions are imported form the PMIME_last file
+    
+#     inputs :
+#         - x = vector or matrix of the interest variables to be tested 
+#         - y = vector of the target variable
+#         - y_past = past of the target
+#         - z = conditioning set
+#         - k = number of nearest neighbors for estimation of CMI
+        
+#     outputs :
+#         - value returned by R = I(Y, w^x|w^y,w^z)/I(Y;w) = pval = val
+#     '''     
+#     # Lmax = kwargs.get('Lmax', 5)
+    
+    
+#     '''     ### Preprocessing ###   '''
+#     # method = kwargs.get('method', "fixed")
+#     stopping_threshold = kwargs.get('threshold', 0.03)
+#     sig_CMI = kwargs.get('sig_CMI', 0.05)
+#     nb_bs = kwargs.get('nb_bs', 100)
+#     # nnei = kwargs.get('nnei', 5)
+
+#     if method == 'shuffle':
+#         cd = CMIknn(mask_type=None, significance='shuffle_test', fixed_thres=None, sig_samples=10000,
+#                     sig_blocklength=3, knn=nb_neighbors, shuffle_neighbors=5, confidence='bootstrap', conf_lev=0.9, conf_samples=10000,
+#                     conf_blocklength=1, verbosity=0) 
+#     elif method == 'fixed':
+#         cd = CMIknn(mask_type=None, significance='fixed_thres', fixed_thres=None) 
+#     else:
+#         cd = 'ksg'
+    
+#     dim_x = x.shape[1]
+#     dim_y = y.shape[1] 
+#     dim_y_past = y_past.shape[1]
+
+#     '''create lagged component of X and Y'''
+#     Xp = np.concatenate((x.values, y_past.values), axis=1)  
+#     # Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
+#     if z is not None:
+#         z_df = pd.DataFrame()
+#         for k in z.keys():
+#             if isinstance(z[k], pd.Series):
+#                 z[k] = z[k].to_frame()
+#             z_df[z[k].columns] = z[k].reset_index(drop=True)
+    
+#         dim_z = z_df.shape[1]
+#         Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
+#         Xp = np.concatenate((Xp, z_df.values[Lmax:,:]), axis=1)
+        
+
+#         all_lags = Xp.shape[1]
+#         # print('matrix X:\n',X[0,:])
+        
+#     else:
+#         ## X = [ lagged variables of X, laggend variables of Y ]
+#                 ## index of each variable in X
+#         ## for instantaneous direct relationships, calculate MI
+#         # if len(x.columns[0]) == len(y.columns[0]): 
+#         #     Xnorm = pm.normalize(x.values)
+#         #     Ynorm = pm.normalize(y.values)
+#         #     R = pm.compute_MI(Xnorm, Ynorm, cd=cd, nnei = nb_neighbors)
+#         #     pval = R
+#         #     if verbose :
+#         #         if z !=None and z != {} :
+#         #             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
+#         #         else :
+#         #             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
+#         #     return R, pval
+#         Xp, ind_lagged_matrix = pm.build_lagged_matrix(Xp, Lmax, T = 1)
+#         all_lags = Xp.shape[1]
+#     y = y[Lmax:]    ## reshape y to match X
+    
+#     X = pm.normalize(Xp) ## normalize data matrix
+    
+#     # print('shape X', X.shape)
+#     '''
+#     ### building the embedding vector   ###
+#     '''
+#     embedding_vector_indices = []
+#     # embedding_vector_indices.append( pm.first_cycle(X, y, num_neighbors = nb_neighbors))
+#     embedding_vector_indices.append( pm.first_cycle(X, y,cd = cd, nnei = nb_neighbors))
+    
+#     embedding_matrix = X[:,embedding_vector_indices]
+#     SC_l = []
+    
+#     termination = 0
+    
+#     while termination == 0:
+#         candidate_list = [i for i in ([j for j in range(all_lags)] + embedding_vector_indices) if i not in embedding_vector_indices]  # indices of candidates
+        
+#         cmi_values = -999 * np.ones((all_lags,))
+        
+#         for var in candidate_list:
+#             ## we compute CMI and MI for each candidate
+#             # cmi_values[var] = pm.ksg_cmi(X[:, var],y, embedding_matrix, k= nb_neighbors)
+#             cmi_values[var] = pm.compute_CMI(X[:, var],y, embedding_matrix, cd = cd, nnei = nb_neighbors)
+    
+#             if cmi_values[var] == np.max(cmi_values):
+#                 embedding_temp = var
+    
+#         temp_embedding_matrix = np.column_stack((embedding_matrix, X[:, embedding_temp]))
+#         # print('valeurs cmi boucle :', cmi_values)
+#         if bootstrap:
+#             p_value = pm.bootstrap_sig_cmi(temp_embedding_matrix, y, nb_bs, cmi_values[embedding_temp],nb_neighbors)
+    
+#             if p_value < sig_CMI:
+#                 embedding_vector_indices += [embedding_temp]
+#                 embedding_matrix = temp_embedding_matrix
+#             else:
+#                 termination = 1
+        
+#         else:
+#             # SC = cmi_values[embedding_temp] / pm.compute_MI(temp_embedding_matrix,y, cd=cd, nnei = nb_neighbors)
+#             # SC = pm.compute_MI(embedding_matrix, y, cd = cd) / pm.compute_MI(temp_embedding_matrix,y, cd=cd)
+#             SC =  pm.compute_MI(temp_embedding_matrix,y, cd=cd, nnei = nb_neighbors) / pm.compute_MI(embedding_matrix, y, cd = cd, nnei = nb_neighbors) 
+            
+#             SC_l += [SC]
+#             # print('SC :', SC)
+#             ## Compare the ratio with the threshold
+#             if len(embedding_vector_indices) <= 2:
+#                 # 2nd and 3rd embedding cycle to be tested
+#                 if SC < 1 - stopping_threshold:
+#                     embedding_vector_indices += [embedding_temp]
+#                     embedding_matrix = temp_embedding_matrix
+#                 else:
+#                     termination = 1
+#             else:
+#                 # 4th embedding cycle to be tested --> additional condition to avoid 
+#                 # false acceptance, if the ratio keeps increasing
+#                 if SC < 1 - stopping_threshold and (SC > SC_l[-2]) and (SC > SC_l[-3]):
+#                     embedding_vector_indices += [embedding_temp]
+#                     embedding_matrix = temp_embedding_matrix
+#                 else:
+#                     termination = 1
+            
+#         # idxM: matrix of the true variable index in the entry dataset + lag of each var
+#         #       implicated in the embedding vector [[var1,lag],[var2,lag]...]
+#         # print('indices w', embedding_vector_indices)
+#         idxM = np.nan * np.ones((len(embedding_vector_indices), 2))
+#         for j in range(len(embedding_vector_indices)):
+#             idxM[j, 0] = np.int8(np.ceil((embedding_vector_indices[j] + 1) / Lmax) - 1)  # var indices
+#             idxM[j, 1] = np.int8(np.mod(embedding_vector_indices[j], Lmax) + 1)  # lag indices for each variable
+        
+        
+#     ''' COMPUTE THE R MEASURE '''
+    
+#     R = pm.compute_R(idxM, embedding_matrix, y, nnei=nb_neighbors)
+#     # R = pm.compute_R(idxM, embedding_matrix, y, cd= cd, nnei = nb_neighbors)
+#     pval = R
+#     if verbose :
+#         if z !=None and z != {} :
+#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'conditioning on z=', z.keys(), 'R = ', R)
+#         else :
+#             print('\n for x=',x.columns[0],' and y =',y.columns[0], 'R = ', R)
+#     return pval, R
 
 
 def get_sampling_rate(ts):
@@ -728,7 +728,6 @@ def get_sampling_rate(ts):
 #     alpha = abs(max(mi_list))
     
 #     return alpha
-
 
 
 
@@ -830,9 +829,12 @@ class CI:
         # print('x :',x )
         # print('y :',y, '\n ')
         # mi_pval, mi_val = gtce(x, y, z=None, sampling_rate_tuple=(self.sampling_rate[node_p], self.sampling_rate[node_q]), p_value=self.p_value)
-        pm_pval,pm_val = pmime_measure( x,y,y_past, z = None, nb_neighbors = self.nnei, method = self.estim_CMI,
-                               Lmax = self.lag_pmime, verbose = self.verbose, threshold = self.sig_pmime,
-                               bootstrap= self.bootstrap, nb_bs = self.nb_bs, sig_CMI = self.sig_CMI)
+        # pm_pval,pm_val = pmime_measure( x,y,y_past, z = None, nb_neighbors = self.nnei, method = self.estim_CMI,
+        #                        Lmax = self.lag_pmime, verbose = self.verbose, threshold = self.sig_pmime,
+        #                        bootstrap= self.bootstrap, nb_bs = self.nb_bs, sig_CMI = self.sig_CMI)
+        pm_pval,pm_val = pmime( x,y,y_past, z = None, nb_neighbors = self.nnei, method = self.estim_CMI,
+                        Lmax = self.lag_pmime, verbose = self.verbose, threshold = self.sig_pmime,
+                        bootstrap= self.bootstrap, nb_bs = self.nb_bs, sig_CMI = self.sig_CMI)
         return node_p, node_q, pm_pval
 
     def skeleton_initialize(self):
@@ -848,7 +850,7 @@ class CI:
         for (node_p, node_q) in self.graph.ghat.edges:
             if (node_q, node_p) not in unique_edges:
                 unique_edges.append((node_p, node_q))
-
+        
         res = Parallel(n_jobs=self.num_processor,prefer = "threads")(delayed(self._pmime_pq)(node_p, node_q) for node_p, node_q in tqdm(unique_edges))
         # res = []
         # for (node_p, node_q) in tqdm(unique_edges):
@@ -917,7 +919,10 @@ class CI:
                 cmi_pval = 1
                 cmi_val = 1
             else: 
-                cmi_pval, cmi_val = pmime_measure( x,y,y_past, z, nb_neighbors = self.nnei,method = self.estim_CMI,
+                # cmi_pval, cmi_val = pmime_measure( x,y,y_past, z, nb_neighbors = self.nnei,method = self.estim_CMI,
+                #                        Lmax = self.lag_pmime, verbose = self.verbose, threshold = self.sig_pmime,
+                #                        bootstrap= self.bootstrap, nb_bs = self.nb_bs, sig_CMI = self.sig_CMI)
+                cmi_pval, cmi_val = pmime( x,y,y_past, z, nb_neighbors = self.nnei,method = self.estim_CMI,
                                        Lmax = self.lag_pmime, verbose = self.verbose, threshold = self.sig_pmime,
                                        bootstrap= self.bootstrap, nb_bs = self.nb_bs, sig_CMI = self.sig_CMI)
             if self.rank_using_p_value:
@@ -1047,8 +1052,9 @@ class CI:
                 
                 #######################################
 '''
+
 class PC(CI):
-    def __init__(self, series, sig_lev=0.05, lag_max=5, p_value=True, rank_using_p_value=False, verbose=True, num_processor=-1,
+    def __init__(self, series, sig_lev=0.05, lag_max=5, p_value=True, rank_using_p_value=False, verbose=True,  method_estim_CMI = 'fixed',num_processor=-1,
                  bs = False, sig_pmime = 0.05,knnei =0.01, nb_bs = 100, sig_CMI = 0.05):
         """
         PC for time series using PMIME
@@ -1058,7 +1064,7 @@ class PC(CI):
         :param verbose: Print results. By default: True
         :param num_processor: number of processors for parallelization. By default -1 (all)
         """
-        CI.__init__(self, series, sig_lev, lag_max, p_value, rank_using_p_value, verbose, num_processor,
+        CI.__init__(self, series, sig_lev, lag_max, p_value, rank_using_p_value, method_estim_CMI, verbose, num_processor,
                     bs, sig_pmime, knnei, nb_bs, sig_CMI)
 
     def rule_origin_causality(self):
@@ -1917,16 +1923,16 @@ if __name__ == "__main__":
 
     
     # Df = pd.read_csv(path_data +'/7ts2h/data_1.csv')
-    path_data = "C:/Users/aa270673/Documents/Code/run_algo/data/simulated_ts_data_v2/acyclic/7ts2h/datasets"
+    path_data = "C:/Users/aa270673/Documents/Code/run_algo/data/simulated_ts_data_v2/acyclic/fork/datasets"
 
 
     Df = pd.read_csv(path_data +'/dataset_selfcause=0_2.csv')
-    Df = Df[:2000]
+    Df = Df[:500]
     Df = Df.drop('time_index',axis = 1)
 
     
     start = timeit.default_timer()
-    ci_pmime = PC(Df, num_processor= 10, lag_max = 4, p_value = False , verbose = 0)
+    ci_pmime = PC(Df, num_processor= -1, lag_max = 4, p_value = False , verbose = 0)
     # fci_pmime = FCI(Df, num_processor= 14, lag_max = 3,p_value = False,knnei = 0.03,sig_pmime = 0.05, method_estim_CMI = 'fixed' )
     # print(ci_pmime.graph.ghat.edges)
     ci_pmime.fit()
